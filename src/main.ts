@@ -76,10 +76,6 @@ function createMainWindow() {
         title: 'Dialog creator',
         webPreferences: {
             preload: path.join(__dirname, "preload.js"),
-            contextIsolation: process.env.NODE_ENV !== "development",
-            // TODO -- use webpack to enable this
-            sandbox: false
-
         },
         width: 800,
         height: 600,

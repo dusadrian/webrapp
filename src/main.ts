@@ -55,7 +55,9 @@ async function initWebR() {
 
     await webR.evalR(`.libPaths(c(.libPaths(), "/my-library"))`)
 
-    result = await webR.evalR(`library(admisc)`); // this throws an error
+    // result = await webR.evalR(`library(declared)`); // this throws an error
+    result = await webR.evalR(`list.files("/my-library")`); // this works alright
+
     if (!isRCharacter(result)) throw new Error('Not a character!'); // critical line
 
     try {

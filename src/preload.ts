@@ -2,19 +2,11 @@ import { ipcRenderer } from 'electron';
 import * as path from 'path';
 import { util } from './library/helpers';
 import { InputOutputType, variablesType } from './library/interfaces';
-
+import { showMessageBox } from "./communication";
 
 window.addEventListener('DOMContentLoaded', () => {
-    // const replaceText = (selector: string, text: string) => {
-    //     const element = document.getElementById(selector)
-    //     if (element) element.innerText = text
-    // }
 
-    // for (const type of ['chrome', 'node', 'electron']) {
-    //     replaceText(`${type}-version`, <any> process.versions[type as keyof NodeJS.ProcessVersions]);
-    // }
-
-    document.getElementById('declared')?.addEventListener('click', () => {
+    util.htmlElement('declared')?.addEventListener('click', () => {
         ipcRenderer.send('declared', {});
     });
 
@@ -47,10 +39,10 @@ window.addEventListener('DOMContentLoaded', () => {
         }
     } = {};
 
-    const inputType = <HTMLSelectElement>document.getElementById('inputType'); // as HTMLSelectElement;
-    const fileEncoding = <HTMLSelectElement>document.getElementById('fileEncoding');
-    const outputType = <HTMLSelectElement>document.getElementById('outputType');
-    const fileFrom = util.htmlElement('fileFrom'); // as HTMLInputElement;
+    const inputType = util.selectElement('inputType');
+    const fileEncoding = util.selectElement('fileEncoding');
+    const outputType = util.selectElement('outputType');
+    const fileFrom = util.htmlElement('fileFrom');
     const fileTo = util.htmlElement('fileTo');
     const selectFileFrom = util.htmlElement('selectFileFrom');
     const selectFileTo = util.htmlElement('selectFileTo');
@@ -164,7 +156,7 @@ window.addEventListener('DOMContentLoaded', () => {
     });
 
     startConvert.addEventListener('click', function () {
-        const loader = document.getElementById('loader') as HTMLDivElement;
+        const loader = util.htmlElement('loader') as HTMLDivElement;
         loader.innerHTML = "Converting...";
         const indices = [];
         let i = 1;
@@ -183,8 +175,12 @@ window.addEventListener('DOMContentLoaded', () => {
         if (indices.length == 0 && !all_vars_selected) {
             ipcRenderer.send('showError', { message: 'At least one variable has to be selected.' });
         } else {
-            let command = "convert('/host/dataset" + inputOutput.fileFromExt + "', to = '/host/" + inputOutput.fileToName + inputOutput.fileToExt + "'";
-            // let command = "convert('" + inputOutput.fileFrom + "', to = '" + inputOutput.fileTo + "'";
+            let command = "convert('/host/dataset" +
+                            inputOutput.fileFromExt +
+                            "', to = '/host/" +
+                            inputOutput.fileToName +
+                            inputOutput.fileToExt +
+                            "'";
 
             const declaredTRUE = util.htmlElement("declaredTRUE");
             command += ", declared = " + ((inputOutput.outputType == "r" && declaredTRUE.checked) ? "TRUE" : "FALSE");
@@ -222,7 +218,7 @@ window.addEventListener('DOMContentLoaded', () => {
 
             let select = "";
             if (indices.length > 0) {
-                select = (all_vars_selected ? "-" : "") + "c(" + util.paste(indices, { sep: "," }) + ")";
+                select = (all_vars_selected ? "-" : "") + "c(" + util.paste(indices, { collapse: "," }) + ")";
             }
 
 

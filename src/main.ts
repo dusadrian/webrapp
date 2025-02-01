@@ -2,10 +2,13 @@
 // https://r-wasm.github.io/rwasm/articles/mount-fs-image.html
 // https://docs.r-wasm.org/webr/latest/
 
+// ./node_modules/.bin/electron-builder install-app-deps --arch arm64
+// ./node_modules/.bin/electron-builder install-app-deps --arch x64
+
 
 // Setting ENVIROMENT
-// process.env.NODE_ENV = 'development';
-process.env.NODE_ENV = 'production';
+process.env.NODE_ENV = 'development';
+// process.env.NODE_ENV = 'production';
 
 const production = process.env.NODE_ENV === 'production';
 const development = process.env.NODE_ENV === 'development';
@@ -14,13 +17,32 @@ const OS_Windows = process.platform == 'win32';
 import { app, BrowserWindow, ipcMain, dialog, shell } from "electron";
 import { InputOutputType } from "./library/interfaces";
 import * as path from "path";
+
 import { util } from "./library/helpers";
+
+
 import * as fs from "fs";
 import * as webr from "webr";
 
 const webR = new webr.WebR({ interactive: false });
 let mainWindow: BrowserWindow;
-let root = production ? "../../" : "../";
+const root = production ? "../../" : "../";
+
+
+const inputOutput: InputOutputType = {
+    inputType: "",
+    fileFrom: "",
+    fileFromDir: "",
+    fileFromName: "",
+    fileFromExt: "",
+
+    outputType: "",
+    fileTo: "",
+    fileToDir: "",
+    fileToName: "",
+    fileToExt: ""
+};
+
 
 
 async function initWebR() {
@@ -90,7 +112,19 @@ function createWindow() {
     });
 
     // and load the index.html of the app.
-    mainWindow.loadFile(path.join(__dirname, root, "src/index.html"));
+    checkIfFileExists(path.join(__dirname, root, "src/index.html")).then((exists) => {
+        if (exists) {
+            mainWindow.loadFile(path.join(__dirname, root, "src/index.html"));
+        } else {
+            if (production) {
+                dialog.showErrorBox("Error", "Running in production mode... set to development?!");
+            } else {
+                dialog.showErrorBox("Error", "Running in development mode... set to production?!");
+            }
+            app.quit();
+        }
+    });
+
 
     // Open the DevTools.
     if (development) {
@@ -118,14 +152,20 @@ app.on("activate", () => {
     }
 });
 
-app.on("window-all-closed", () => {
-    if (process.platform !== "darwin") {
-        app.quit();
+app.on("before-quit", (event) => {
+    if (inputOutput.fileFromExt !== "") {
+        deleteFile(
+            path.join(__dirname, root, 'dataset' + inputOutput.fileFromExt)
+        ).then((result) => {
+            if (!result.success) {
+                dialog.showErrorBox("Error", result.error as string);
+            }
+        });
     }
 });
 
-ipcMain.on("foo", (event, args) => {
-    console.log(args);
+app.on("window-all-closed", () => {
+    app.quit();
 });
 
 
@@ -171,12 +211,24 @@ ipcMain.on("selectFileFrom", async (event, args) => {
                 inputOutput.inputType = util.getTypeFromExtension(ext);
                 inputOutput.fileFromName = path.basename(inputOutput.fileFrom, ext);
                 inputOutput.fileFromDir = path.dirname(inputOutput.fileFrom);
+
+                if (inputOutput.fileFromExt !== "" && inputOutput.fileFromExt !== ext) {
+                    deleteFile(
+                        path.join(__dirname, root, 'dataset' + inputOutput.fileFromExt)
+                    ).then((result) => {
+                        if (!result.success) {
+                            dialog.showErrorBox("Error", result.error as string);
+                        }
+                    });
+                }
+
                 inputOutput.fileFromExt = ext;
 
                 if (OS_Windows) {
                     inputOutput.fileFrom = inputOutput.fileFrom.replace(/\\/g, '/');
                     inputOutput.fileFromDir = inputOutput.fileFromDir.replace(/\\/g, '/');
                 }
+
 
                 copyFile(
                     inputOutput.fileFrom,
@@ -205,38 +257,36 @@ ipcMain.on("selectFileTo", (event, args) => {
     } else {
         const ext = util.getExtensionFromType(args.outputType);
 
-        dialog
-            .showSaveDialog(mainWindow, {
-                title: "Select destination file",
-                // TODO:
-                // if this button is clicked before the input one,
-                // fileFromDir is empty
-                defaultPath: path.join(inputOutput.fileFromDir, inputOutput.fileFromName + ext),
-            })
-            .then((result) => {
-                if (!result.canceled) {
-                    inputOutput.fileTo = "" + result.filePath;
+        dialog.showSaveDialog(mainWindow, {
+            title: "Select destination file",
+            // TODO:
+            // if this button is clicked before the input one,
+            // fileFromDir is empty
+            defaultPath: path.join(inputOutput.fileFromDir, inputOutput.fileFromName + ext),
+        })
+        .then((result) => {
+            if (!result.canceled) {
+                inputOutput.fileTo = "" + result.filePath;
 
-                    const file = path.basename(inputOutput.fileTo);
-                    const ext = path.extname(file);
+                const file = path.basename(inputOutput.fileTo);
+                const ext = path.extname(file);
 
-                    inputOutput.outputType = util.getTypeFromExtension(ext);
-                    inputOutput.fileToName = path.basename(inputOutput.fileTo, ext);
-                    inputOutput.fileToDir = path.dirname(inputOutput.fileTo);
-                    inputOutput.fileToExt = ext;
+                inputOutput.outputType = util.getTypeFromExtension(ext);
+                inputOutput.fileToName = path.basename(inputOutput.fileTo, ext);
+                inputOutput.fileToDir = path.dirname(inputOutput.fileTo);
+                inputOutput.fileToExt = ext;
 
-                    if (OS_Windows) {
-                        inputOutput.fileTo = inputOutput.fileTo.replace(/\\/g, '/');
-                        inputOutput.fileToDir = inputOutput.fileToDir.replace(/\\/g, '/');
-                    }
-
-                    console.log(inputOutput);
-                    event.reply("selectFileTo-reply", inputOutput);
+                if (OS_Windows) {
+                    inputOutput.fileTo = inputOutput.fileTo.replace(/\\/g, '/');
+                    inputOutput.fileToDir = inputOutput.fileToDir.replace(/\\/g, '/');
                 }
-            })
-            .catch((err) => {
-                console.log(err);
-            });
+
+                event.reply("selectFileTo-reply", inputOutput);
+            }
+        })
+        .catch((err) => {
+            console.log(err);
+        });
     }
 });
 
@@ -294,7 +344,9 @@ ipcMain.on("sendCommand", async (event, command) => {
 });
 
 // Handle the command request
-ipcMain.on("startConvert", async (event, command) => {
+ipcMain.on("startConvert", async (event, args) => {
+    const command = args.command;
+    const embed = args.embed;
     mainWindow.webContents.send("startLoader");
     try {
         await webR.evalR(command);
@@ -303,10 +355,13 @@ ipcMain.on("startConvert", async (event, command) => {
             path.join(__dirname, root, inputOutput.fileFromName + inputOutput.fileToExt),
             path.join(inputOutput.fileFromDir, inputOutput.fileFromName + inputOutput.fileToExt)
         ).then((result) => {
-            if (!result.success) {
-                dialog.showErrorBox("Error", result.error as string);
+            if (result.success) {
+                moveFile(
+                    path.join(__dirname, root, inputOutput.fileFromName + '.csv'),
+                    path.join(inputOutput.fileFromDir, inputOutput.fileFromName + '.csv')
+                );
             } else {
-                fs.promises.unlink(path.join(__dirname, root, 'dataset' + inputOutput.fileFromExt));
+                dialog.showErrorBox("Error", result.error as string);
             }
         });
     } catch (error) {
@@ -338,17 +393,20 @@ async function moveFile(src: string, dest: string) {
     }
 }
 
+async function deleteFile(filePath: string) {
+    try {
+        await fs.promises.unlink(filePath);
+        return { success: true };
+    } catch (error) {
+        return { success: false, error: (error instanceof Error) ? error.message : String(error) };
+    }
+}
 
-const inputOutput: InputOutputType = {
-    inputType: "",
-    fileFrom: "",
-    fileFromDir: "",
-    fileFromName: "",
-    fileFromExt: "",
-
-    outputType: "",
-    fileTo: "",
-    fileToDir: "",
-    fileToName: "",
-    fileToExt: ""
-};
+async function checkIfFileExists(filePath: string) {
+    try {
+        await fs.promises.access(filePath);
+        return true;
+    } catch (error) {
+        return false;
+    }
+}

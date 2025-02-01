@@ -2,7 +2,6 @@ import { ipcRenderer } from 'electron';
 import * as path from 'path';
 import { util } from './library/helpers';
 import { InputOutputType, variablesType } from './library/interfaces';
-import { showMessageBox } from "./communication";
 
 window.addEventListener('DOMContentLoaded', () => {
 

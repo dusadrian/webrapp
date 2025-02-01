@@ -684,18 +684,17 @@ export const util: UtilHelpersInterface = {
         return(Math.max.apply(null, x));
     },
 
-    //                                         options?: {sep: string, from: number, to: number}
     //                                         options?: {[key: string]: string|number}
     paste: function(arr: Array<number|string>, options?: Record<string, string|number>): string {
         if (arr.length == 0) return("");
 
-        let sep = " ";
+        let collapse = " ";
         let from = 0;
         let to = arr.length - 1;
 
         if (options !== void 0 && options !== undefined) {
-            if (util.exists(options.sep)) {
-                sep = "" + options.sep;
+            if (util.exists(options.collapse)) {
+                collapse = "" + options.collapse;
             }
 
             if (util.exists(options.from)) {
@@ -711,12 +710,12 @@ export const util: UtilHelpersInterface = {
 
         if (from < to) {
             for (let i = from + 1; i <= to; i++) {
-                result += sep + arr[i];
+                result += collapse + arr[i];
             }
         }
         else {
             for (let i = from - 1; i >= to; i--) {
-                result += sep + arr[i];
+                result += collapse + arr[i];
             }
         }
 

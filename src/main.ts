@@ -65,23 +65,6 @@ async function initWebR() {
     await webR.evalR(`.libPaths(c(.libPaths(), "/my-library"))`);
     await webR.evalR(`library(DDIwR)`);
 
-
-
-    // Pointer methods:
-        // 'constructor',      'getString',
-        // 'toString',         'toTypedArray',
-        // 'toArray',          'get',
-        // 'subset',           'getDollar',
-        // 'detectMissing',    'toObject',
-        // 'entries',          'toJs',
-        // 'getPropertyValue', 'inspect',
-        // 'isNull',           'isNa',
-        // 'isUnbound',        'attrs',
-        // 'class',            'setNames',
-        // 'names',            'includes',
-        // 'pluck',            'set',
-        // 'type'
-
 }
 
 // Create the main browser window
@@ -107,7 +90,7 @@ function createWindow() {
     });
 
     // and load the index.html of the app.
-    mainWindow.loadFile(path.join(__dirname, "../src/index.html"));
+    mainWindow.loadFile(path.join(__dirname, root, "src/index.html"));
 
     // Open the DevTools.
     if (development) {
@@ -157,9 +140,6 @@ ipcMain.on('showDialogMessage', (event, args) => {
 
 
 
-ipcMain.on("gotoRODA", () => {
-    shell.openExternal("http://www.roda.ro");
-});
 
 ipcMain.on("declared", () => {
     shell.openExternal("https://cran.r-project.org/web/packages/declared/index.html");

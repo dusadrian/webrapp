@@ -4,20 +4,6 @@ import { util } from './library/helpers';
 import { InputOutputType, variablesType } from './library/interfaces';
 
 
-const inputOutput: InputOutputType = {
-    inputType: '',
-    fileFrom: '',
-    fileFromDir: '',
-    fileFromName: '',
-    fileFromExt: '',
-
-    outputType: '',
-    fileTo: '',
-    fileToDir: '',
-    fileToName: '',
-    fileToExt: ''
-};
-
 window.addEventListener('DOMContentLoaded', () => {
     // const replaceText = (selector: string, text: string) => {
     //     const element = document.getElementById(selector)
@@ -30,10 +16,6 @@ window.addEventListener('DOMContentLoaded', () => {
 
     document.getElementById('declared')?.addEventListener('click', () => {
         ipcRenderer.send('declared', {});
-    });
-
-    document.getElementById('gotoRODA')?.addEventListener('click', () => {
-        ipcRenderer.send('gotoRODA', {});
     });
 
     ipcRenderer.on('startLoader', () => {
@@ -201,33 +183,32 @@ window.addEventListener('DOMContentLoaded', () => {
         if (indices.length == 0 && !all_vars_selected) {
             ipcRenderer.send('showError', { message: 'At least one variable has to be selected.' });
         } else {
-            console.log(inputOutput.fileToName + inputOutput.fileToExt);
             let command = "convert('/host/dataset" + inputOutput.fileFromExt + "', to = '/host/" + inputOutput.fileToName + inputOutput.fileToExt + "'";
             // let command = "convert('" + inputOutput.fileFrom + "', to = '" + inputOutput.fileTo + "'";
 
-            const declaredTRUE = document.getElementById("declaredTRUE") as HTMLInputElement;
+            const declaredTRUE = util.htmlElement("declaredTRUE");
             command += ", declared = " + ((inputOutput.outputType == "r" && declaredTRUE.checked) ? "TRUE" : "FALSE");
 
 
             // recode is by default TRUE, for instance from Stata to SPSS this is mandatory
             // const from_extended = inputOutput.inputType == "stata" || inputOutput.inputType == "sas";
             // const to_normal = inputOutput.outputType == "spss" || inputOutput.outputType == "ddi";
-            const recodeFALSE = document.getElementById("recodeFALSE") as HTMLInputElement;
+            const recodeFALSE = util.htmlElement("recodeFALSE");
             if (recodeFALSE.checked) {
                 command += ", recode = FALSE";
             }
 
-            const chartonum = document.getElementById("chartonumTRUE") as HTMLInputElement;
+            const chartonum = util.htmlElement("chartonumTRUE");
             if (chartonum.checked) {
                 command += ", chartonum = TRUE";
             }
 
-            const targetOS = document.getElementById('targetOS') as HTMLInputElement;
+            const targetOS = util.htmlElement('targetOS');
             if (targetOS.value != 'local') {
                 command += ", OS = '" + targetOS.value + "'";
             }
 
-            const fileEncoding = document.getElementById('fileEncoding') as HTMLInputElement;
+            const fileEncoding = util.htmlElement('fileEncoding');
             if (fileEncoding.value != 'utf8') {
                 if (fileEncoding.value == "default") {
                     command += ", encoding = NULL";
@@ -237,7 +218,7 @@ window.addEventListener('DOMContentLoaded', () => {
                 }
             }
 
-            const select_cases = document.getElementById('select_cases') as HTMLInputElement;
+            const select_cases = util.htmlElement('select_cases');
 
             let select = "";
             if (indices.length > 0) {
@@ -253,7 +234,7 @@ window.addEventListener('DOMContentLoaded', () => {
                     subset += select_cases.value;
                 }
 
-                const keep = document.getElementById('keepSelectionCases') as HTMLInputElement;
+                const keep = util.htmlElement('keepSelectionCases');
                 if (!keep.checked) {
                     select_cases.value = "";
                 }
@@ -276,40 +257,40 @@ window.addEventListener('DOMContentLoaded', () => {
             // }
 
             if (inputOutput.outputType == "stata") {
-                const stataVersion = document.getElementById('stataVersion') as HTMLInputElement;
+                const stataVersion = util.htmlElement('stataVersion');
                 if (stataVersion.value != "14") {
                     command += ", version = " + stataVersion.value;
                 }
             }
 
             if (inputOutput.outputType == "xpt") {
-                const xptVersion = document.getElementById('xptVersion') as HTMLInputElement;
+                const xptVersion = util.htmlElement('xptVersion');
                 if (xptVersion.value != "8") {
                     command += ", version = " + xptVersion.value;
                 }
             }
 
-            const agency = document.getElementById('agency') as HTMLInputElement;
+            const agency = util.htmlElement('agency');
             if (agency.value != "") {
                 command += ", agency = '" + agency.value + "'";
             }
 
-            const xmlang = document.getElementById('xmlang') as HTMLInputElement;
+            const xmlang = util.htmlElement('xmlang');
             if (xmlang.value != "") {
                 command += ", xmlang = '" + xmlang.value + "'";
             }
 
-            const monolang = document.getElementById('monolang') as HTMLInputElement;
+            const monolang = util.htmlElement('monolang');
             if (!monolang.checked) {
                 command += ", monolang = FALSE"
             }
 
-            const IDNo = document.getElementById('IDNo') as HTMLInputElement;
+            const IDNo = util.htmlElement('IDNo');
             if (IDNo.value != "") {
                 command += ", IDNo = '" + IDNo.value + "'";
             }
 
-            const URI = document.getElementById('URI') as HTMLInputElement;
+            const URI = util.htmlElement('URI');
             if (URI.value != "") {
                 command += ", URI = '" + URI.value + "'";
             }
@@ -414,7 +395,6 @@ window.addEventListener('DOMContentLoaded', () => {
             variablesList?.appendChild(formCheck);
 
             formCheck.addEventListener('click', () => {
-                // console.log(formCheck.classList.contains('activeVariable'));
 
                 if (formCheck.classList.contains('activeVariable')) {
                     removeActive();
@@ -425,8 +405,6 @@ window.addEventListener('DOMContentLoaded', () => {
                     formCheck.classList.add('activeVariable');
 
                     const el = <HTMLInputElement>document.querySelector('.activeVariable input[type="checkbox"]');
-                    // console.log(formCheck);
-                    // console.log(variables[formCheck.id]);
                     if (variables[el.id] && variables[el.id].label[0]) {
                         (util.htmlElement('variable-label')).innerHTML = util.replaceUnicode(variables[el.id].label)[0];
                         const vals = util.htmlElement('value-labels');
@@ -495,8 +473,6 @@ window.addEventListener('DOMContentLoaded', () => {
 
             const f2 = (util.htmlElement('filterInput')).value;
 
-            // console.log(f1);
-            // console.log(f2);
             filterVar(variables, f1, f2, true);
         });
 
@@ -510,8 +486,6 @@ window.addEventListener('DOMContentLoaded', () => {
 
             const f2 = (util.htmlElement('filterInput')).value;
 
-            // console.log(f1);
-            // console.log(f2);
             filterVar(variables, f1, f2, false);
         });
     });
@@ -614,18 +588,9 @@ function debounce(callback: () => void, delay: number) {
 function insertAtPosition(areaId: string, text: string) {
     const txtarea = <HTMLTextAreaElement>document.getElementById(areaId);
 
-    // console.log(areaId);
-    // console.log(text);
-
     if (!txtarea) {
         return;
     }
-
-    // console.log('aici');
-
-
-    // console.log('gasit');
-    // console.log(text);
 
     const scrollPos = txtarea.scrollTop;
     let strPos = 0;
@@ -647,3 +612,19 @@ function insertAtPosition(areaId: string, text: string) {
 ipcRenderer.on('consolog', (event, message: string) => {
     console.log(message);
 });
+
+
+
+const inputOutput: InputOutputType = {
+    inputType: '',
+    fileFrom: '',
+    fileFromDir: '',
+    fileFromName: '',
+    fileFromExt: '',
+
+    outputType: '',
+    fileTo: '',
+    fileToDir: '',
+    fileToName: '',
+    fileToExt: ''
+};

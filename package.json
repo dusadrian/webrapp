@@ -1,36 +1,70 @@
 {
   "name": "webrapp",
   "version": "1.0.0",
-  "description": "A minimal Electron application written with Typescript",
+  "description": "",
   "main": "dist/main.js",
   "scripts": {
     "build": "tsc",
     "watch": "tsc -w",
     "lint": "eslint -c .eslintrc --ext .ts ./src",
-    "start": "npm run build && electron ./dist/main.js"
+    "start": "npm run build && electron ./dist/main.js",
+    "dist": "npm run build && electron-builder"
   },
-  "repository": "https://github.com/dusadrian/webrapp.git",
-  "keywords": [
-    "Electron",
-    "R"
-  ],
   "author": "RODA",
   "license": "CC0-1.0",
+  "bugs": {
+    "url": "https://github.com/dusadrian/webrapp/issues"
+  },
+  "homepage": "https://github.com/dusadrian/webrapp#readme",
+  "build": {
+    "appId": "WebRapp.tool",
+    "productName": "WebRapp",
+    "directories": {
+      "output": "build/output"
+    },
+    "win": {
+      "legalTrademarks": "CC0-1.0",
+      "target": {
+        "target": "nsis",
+        "arch": [
+          "x64"
+        ]
+      }
+    },
+    "mac": {
+      "category": "public.app-category.productivity",
+      "target": {
+        "target": "dmg",
+        "arch": [
+          "arm64"
+        ]
+      }
+    }
+  },
   "devDependencies": {
     "@types/electron": "^1.4.38",
     "@types/emscripten": "^1.39.13",
+    "@types/lodash": "^4.17.15",
     "@types/serviceworker": "^0.0.114",
     "@types/uuid": "^10.0.0",
-    "@typescript-eslint/eslint-plugin": "^8.21.0",
-    "@typescript-eslint/parser": "^8.21.0",
-    "electron": "^34.0.0",
+    "@typescript-eslint/eslint-plugin": "^8.20.0",
+    "@typescript-eslint/parser": "^8.20.0",
+    "electron": "^34.0.2",
+    "electron-builder": "^25.1.8",
     "eslint": "^9.18.0",
+    "ts-loader": "^9.5.2",
     "typescript": "^5.7.3",
+    "webpack": "^5.97.1",
+    "webpack-cli": "^6.0.1",
     "webr": "^0.4.2"
   },
   "dependencies": {
     "@xterm/addon-fit": "^0.10.0",
     "@xterm/xterm": "^5.5.0",
+    "bootstrap": "^5.3.3",
+    "lodash": "^4.17.21",
+    "tippy.js": "^6.3.7",
     "uuid": "^11.0.5"
-  }
+  },
+  "postinstall": "electron-builder install-app-deps"
 }

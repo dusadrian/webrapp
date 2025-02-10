@@ -14,87 +14,89 @@ const production = process.env.NODE_ENV === 'production';
 const development = process.env.NODE_ENV === 'development';
 const OS_Windows = process.platform == 'win32';
 
-import { app, BrowserWindow, ipcMain, dialog, shell } from "electron";
-import { InputOutputType } from "./library/interfaces";
+
+import { app, BrowserWindow, ipcMain, dialog, shell, Menu, session } from "electron";
 import * as path from "path";
-
-import { util } from "./library/helpers";
-
-
 import * as fs from "fs";
 import * as webr from "webr";
+import * as interfaces from './library/interfaces';
+import { util } from "./library/helpers";
 
 const webR = new webr.WebR({ interactive: false });
 let mainWindow: BrowserWindow;
-const root = production ? "../../" : "../";
 
 
-const inputOutput: InputOutputType = {
-    inputType: "",
-    fileFrom: "",
-    fileFromDir: "",
-    fileFromName: "",
-    fileFromExt: "",
+async function mount(obj: interfaces.MountArgs) {
 
-    outputType: "",
-    fileTo: "",
-    fileToDir: "",
-    fileToName: "",
-    fileToExt: ""
-};
+    try {
+        await webR.FS.unmount(obj.where);
+    } catch (error) {
+        // consolog(obj.where + " directory is not mounted yet.");
+        try {
+            await webR.FS.mkdir(obj.where);
+        } catch (error) {
+            consolog("Failed to make " + obj.where);
+            throw error;
+        }
+    }
 
-
+    try {
+        await webR.FS.mount(
+            "NODEFS",
+            { root: obj.what },
+            obj.where
+        );
+    } catch (error) {
+        consolog("Failed to mount " + obj.what + " to " + obj.where);
+        throw error;
+    }
+}
 
 async function initWebR() {
-    await webR.init();
+    try {
+        await webR.init();
 
-    // mount a virtual filesystem containing contributed R packages
-    let data =  new Blob([
-        fs.readFileSync(
-            path.join(__dirname, root, 'src/library/R/library.data')
-        )
-    ]);
+        // mount a virtual filesystem containing contributed R packages
+        const data =  new Blob([
+            fs.readFileSync(
+                path.join(__dirname, '../src/library/R/library.data.gz')
+                // path.join(__dirname, '../src/library/R/uncompressed/library.data')
+            )
+        ]);
 
-    let metadata = JSON.parse(
-        fs.readFileSync(
-            path.join(__dirname, root, 'src/library/R/library.js.metadata'),
-            'utf-8'
-        )
-    );
+        const metadata = JSON.parse(
+            fs.readFileSync(
+                path.join(__dirname, '../src/library/R/library.js.metadata'),
+                'utf-8'
+            )
+        );
 
-    const options = {
-        packages: [{
-            blob: data,
-            metadata: metadata,
-        }]
-    };
+        const options = {
+            packages: [{
+                blob: data,
+                metadata: metadata,
+            }]
+        };
 
-    await webR.FS.mkdir('/my-library');
-    await webR.FS.mount(
-        "WORKERFS",
-        options,
-        '/my-library'
-    );
+        await webR.FS.mkdir('/my-library');
+        await webR.FS.mount(
+            "WORKERFS",
+            options,
+            '/my-library'
+        );
 
-    // mount a directory from the host filesystem, to save various objects
-    await webR.FS.mkdir("/host");
-    await webR.FS.mount(
-        "NODEFS",
-        { root: path.join(__dirname, root) },
-        "/host"
-    );
-
-    await webR.evalR(`.libPaths(c(.libPaths(), "/my-library"))`);
-    await webR.evalR(`library(DDIwR)`);
-
+        await webR.evalR(`.libPaths(c(.libPaths(), "/my-library"))`);
+        await webR.evalR(`library(DDIwR)`);
+    } catch (error) {
+        throw error;
+    }
 }
 
 // Create the main browser window
-
 function createWindow() {
     // Create the browser window.
     mainWindow = new BrowserWindow({
-        title: 'WebRapp',
+        title: 'StatConverter',
         webPreferences: {
             preload: path.join(__dirname, "preload.js"),
             contextIsolation: true,
@@ -111,38 +113,21 @@ function createWindow() {
         center: true
     });
 
-    // and load the index.html of the app.
-    checkIfFileExists(path.join(__dirname, root, "src/index.html")).then((exists) => {
-        if (exists) {
-            mainWindow.loadFile(path.join(__dirname, root, "src/index.html"));
-        } else {
-            if (production) {
-                dialog.showErrorBox("Error", "Running in production mode... set to development?!");
-            } else {
-                dialog.showErrorBox("Error", "Running in development mode... set to production?!");
-            }
-            app.quit();
-        }
-    });
-
+    mainWindow.loadFile(path.join(__dirname, "../src/index.html"));
 
     // Open the DevTools.
     if (development) {
         mainWindow.webContents.openDevTools();
+    } else {
+        // Remove the default menu
+        Menu.setApplicationMenu(null);
     }
 
 }
 
-app.whenReady().then(async () => {
-
+app.whenReady().then(() => {
     createWindow();
-
-    try {
-        await initWebR();
-    } catch (error) {
-        console.error("Error during initialization:", error);
-    }
-
+    initWebR();
 });
 
 
@@ -152,24 +137,13 @@ app.on("activate", () => {
     }
 });
 
-app.on("before-quit", (event) => {
-    if (inputOutput.fileFromExt !== "") {
-        deleteFile(
-            path.join(__dirname, root, 'dataset' + inputOutput.fileFromExt)
-        ).then((result) => {
-            if (!result.success) {
-                dialog.showErrorBox("Error", result.error as string);
-            }
-        });
-    }
-});
 
 app.on("window-all-closed", () => {
     app.quit();
 });
 
 
-ipcMain.on('showDialogMessage', (event, args) => {
+ipcMain.on('showMessage', (event, args) => {
     dialog.showMessageBox(mainWindow, {
         type: args.type,
         title: args.title,
@@ -177,18 +151,31 @@ ipcMain.on('showDialogMessage', (event, args) => {
     })
 });
 
+ipcMain.on('showError', (event, message) => {
+    dialog.showMessageBox(mainWindow, {
+        type: "error",
+        title: "Error",
+        message: message
+    });
+});
 
 
-
+ipcMain.on("gotoRODA", () => {
+    shell.openExternal("http://www.roda.ro");
+});
 
 ipcMain.on("declared", () => {
     shell.openExternal("https://cran.r-project.org/web/packages/declared/index.html");
 });
 
 
-ipcMain.on("selectFileFrom", async (event, args) => {
+ipcMain.on("selectFileFrom", (event, args) => {
     if (args.inputType === "Select file type") {
-        dialog.showErrorBox("Error", "Select input type");
+        dialog.showMessageBox(mainWindow, {
+            type: "error",
+            title: "Error",
+            message: "Select input type"
+        });
     } else {
         const info = util.fileFromInfo(args.inputType);
 
@@ -201,7 +188,8 @@ ipcMain.on("selectFileFrom", async (event, args) => {
                 },
             ],
             properties: ["openFile"],
-        }).then((result) => {
+        }).then(async (result) => {
+            // if (!result.canceled) {
             if (!result.canceled) {
                 inputOutput.fileFrom = result.filePaths[0];
 
@@ -212,16 +200,6 @@ ipcMain.on("selectFileFrom", async (event, args) => {
                 inputOutput.fileFromName = path.basename(inputOutput.fileFrom, ext);
                 inputOutput.fileFromDir = path.dirname(inputOutput.fileFrom);
 
-                if (inputOutput.fileFromExt !== "" && inputOutput.fileFromExt !== ext) {
-                    deleteFile(
-                        path.join(__dirname, root, 'dataset' + inputOutput.fileFromExt)
-                    ).then((result) => {
-                        if (!result.success) {
-                            dialog.showErrorBox("Error", result.error as string);
-                        }
-                    });
-                }
-
                 inputOutput.fileFromExt = ext;
 
                 if (OS_Windows) {
@@ -229,17 +207,8 @@ ipcMain.on("selectFileFrom", async (event, args) => {
                     inputOutput.fileFromDir = inputOutput.fileFromDir.replace(/\\/g, '/');
                 }
 
-
-                copyFile(
-                    inputOutput.fileFrom,
-                    path.join(__dirname, root, 'dataset' + ext)
-                ).then((result) => {
-                    if (!result.success) {
-                        dialog.showErrorBox("Error", result.error as string);
-                    } else {
-                        event.reply("selectFileFrom-reply", inputOutput);
-                    }
-
+                mount({ what: inputOutput.fileFromDir, where: "/input" }).then(() => {
+                    mainWindow.webContents.send("selectFileFrom-reply", inputOutput);
                 });
             }
         });
@@ -247,13 +216,21 @@ ipcMain.on("selectFileFrom", async (event, args) => {
     }
 });
 
+
 ipcMain.on("outputType", (event, args) => {
     inputOutput.fileToExt = args.extension;
+    if (inputOutput.fileFromDir != "" && inputOutput.fileToDir == "") {
+        mount({ what: inputOutput.fileFromDir, where: "/output" });
+    }
 })
 
 ipcMain.on("selectFileTo", (event, args) => {
     if (args.outputType === "Select file type") {
-        dialog.showErrorBox("Error", "Select output type");
+        dialog.showMessageBox(mainWindow, {
+            type: "error",
+            title: "Error",
+            message: "Select output type"
+        });
     } else {
         const ext = util.getExtensionFromType(args.outputType);
 
@@ -281,24 +258,16 @@ ipcMain.on("selectFileTo", (event, args) => {
                     inputOutput.fileToDir = inputOutput.fileToDir.replace(/\\/g, '/');
                 }
 
-                event.reply("selectFileTo-reply", inputOutput);
+                mount({ what: inputOutput.fileToDir, where: "/output" }).then(() => {
+                    mainWindow.webContents.send("selectFileTo-reply", inputOutput);
+                });
             }
         })
         .catch((err) => {
-            console.log(err);
+            consolog(err);
         });
     }
 });
-
-
-
-ipcMain.on("showError", (event, args) => {
-    dialog.showMessageBox(mainWindow, {
-        type: "error",
-        message: args.message,
-    });
-});
-
 
 
 ipcMain.on("gotoRODA", () => {
@@ -311,102 +280,80 @@ ipcMain.on("declared", () => {
 
 
 // Handle the command request
-ipcMain.on("sendCommand", async (event, command) => {
-    mainWindow.webContents.send("startLoader");
-    try {
-        await webR.evalR(command);
-        const result = await webR.evalR(`as.character(jsonlite::toJSON(lapply(
-            collectRMetadata(dataset),
-            function(x) {
-                values <- names(x$labels)
-                names(values) <- x$labels
-                x$values <- as.list(values)
-                return(x)
-            }
-        )))`);
-
-        if (!webr.isRCharacter(result)) throw new Error('Not a character!');
-
-        const response = await result.toArray();
-        // mainWindow.webContents.send("consolog", JSON.parse(response[0] as string));
-        webR.destroy(result);
-
-        event.reply("sendCommand-reply", JSON.parse(response[0] as string));
-        // return { success: true , variables: variables };
-    } catch (error) {
-        dialog.showMessageBox(mainWindow, {
-            type: "error",
-            message: (error instanceof Error) ? error.message : String(error),
-        });
-        // return { success: false, error: (error instanceof Error) ? error.message : String(error) };
-    }
-    mainWindow.webContents.send("clearLoader");
-});
-
-// Handle the command request
-ipcMain.on("startConvert", async (event, args) => {
+ipcMain.on("sendCommand", async (event, args) => {
     const command = args.command;
-    const embed = args.embed;
     mainWindow.webContents.send("startLoader");
-    try {
-        await webR.evalR(command);
 
-        moveFile(
-            path.join(__dirname, root, inputOutput.fileFromName + inputOutput.fileToExt),
-            path.join(inputOutput.fileFromDir, inputOutput.fileFromName + inputOutput.fileToExt)
-        ).then((result) => {
-            if (result.success) {
-                moveFile(
-                    path.join(__dirname, root, inputOutput.fileFromName + '.csv'),
-                    path.join(inputOutput.fileFromDir, inputOutput.fileFromName + '.csv')
-                );
-            } else {
-                dialog.showErrorBox("Error", result.error as string);
-            }
-        });
-    } catch (error) {
+    let output_dir_writable = true;
+    if (!util.isTrue(args.updateVariables)) {
+        try {
+            await webR.evalR(`write.csv(data.frame(A = 1:2), "/output/test.csv")`);
+            await webR.evalR(`unlink("/output/test.csv")`);
+        } catch (error) {
+            output_dir_writable = false;
+        }
+    }
+
+    if (util.isFalse(args.updateVariables) && util.isFalse(output_dir_writable)) {
         dialog.showMessageBox(mainWindow, {
             type: "error",
-            message: (error instanceof Error) ? error.message : String(error),
+            title: "Error",
+            message:"The target directory has writing constraints. Try saving into a different one."
         });
-        // return { success: false, error: (error instanceof Error) ? error.message : String(error) };
+    } else {
+
+        try {
+            await webR.evalR(command);
+        } catch (error) {
+            console.log(error);
+            throw error;
+        }
+
+        if (util.isTrue(args.updateVariables)) {
+            // consolog("main: updating variables");
+            try {
+                const result = await webR.evalR(`as.character(jsonlite::toJSON(lapply(
+                    collectRMetadata(dataset),
+                    function(x) {
+                        values <- names(x$labels)
+                        names(values) <- x$labels
+                        x$values <- as.list(values)
+                        return(x)
+                    }
+                )))`);
+
+                if (!webr.isRCharacter(result)) throw new Error('Not a character!');
+
+                const response = await result.toString();
+                webR.destroy(result);
+                mainWindow.webContents.send("updateVariables", JSON.parse(response));
+
+            } catch (error) {
+                console.log(error);
+                throw error;
+            }
+        }
     }
+
     mainWindow.webContents.send("clearLoader");
 });
 
 
-async function copyFile(src: string, dest: string) {
-    try {
-        await fs.promises.copyFile(src, dest);
-        return { success: true };
-    } catch (error) {
-        return { success: false, error: (error instanceof Error) ? error.message : String(error) };
-    }
-}
+const inputOutput: interfaces.InputOutput = {
+    inputType: "",
+    fileFrom: "",
+    fileFromDir: "",
+    fileFromName: "",
+    fileFromExt: "",
 
-async function moveFile(src: string, dest: string) {
-    try {
-        await fs.promises.rename(src, dest);
-        return { success: true };
-    } catch (error) {
-        return { success: false, error: (error instanceof Error) ? error.message : String(error) };
-    }
-}
+    outputType: "",
+    fileTo: "",
+    fileToDir: "",
+    fileToName: "",
+    fileToExt: ""
+};
 
-async function deleteFile(filePath: string) {
-    try {
-        await fs.promises.unlink(filePath);
-        return { success: true };
-    } catch (error) {
-        return { success: false, error: (error instanceof Error) ? error.message : String(error) };
-    }
-}
 
-async function checkIfFileExists(filePath: string) {
-    try {
-        await fs.promises.access(filePath);
-        return true;
-    } catch (error) {
-        return false;
-    }
+function consolog(x: any) {
+    mainWindow.webContents.send("consolog", x);
 }

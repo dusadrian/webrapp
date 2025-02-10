@@ -1,7 +1,7 @@
 import { ipcRenderer } from 'electron';
 import * as path from 'path';
 import { util } from './library/helpers';
-import { InputOutputType, variablesType } from './library/interfaces';
+import * as interfaces from './library/interfaces';
 
 window.addEventListener('DOMContentLoaded', () => {
 
@@ -493,7 +493,7 @@ function removeActive() {
     });
 }
 
-function filterVar(variables: variablesType, f1: string, f2: string, make: boolean) {
+function filterVar(variables: interfaces.Variables, f1: string, f2: string, make: boolean) {
     if (f2 == '') {
         alert('Text or pattern should be specified.');
     } else {
@@ -536,7 +536,7 @@ function filterVar(variables: variablesType, f1: string, f2: string, make: boole
     }
 }
 
-function varSearchF(variables: variablesType): void {
+function varSearchF(variables: interfaces.Variables): void {
     const value = (util.htmlElement('varsearch')).value;
     if (value != '') {
         for (const key in variables) {
@@ -553,7 +553,7 @@ function varSearchF(variables: variablesType): void {
     }
 }
 
-function varSearchCasesF(variables: variablesType): void {
+function varSearchCasesF(variables: interfaces.Variables): void {
     const value = (util.htmlElement('varSearchCases')).value;
     if (value != '') {
         for (const key in variables) {
@@ -610,7 +610,7 @@ ipcRenderer.on('consolog', (event, message: string) => {
 
 
 
-const inputOutput: InputOutputType = {
+const inputOutput: interfaces.InputOutput = {
     inputType: '',
     fileFrom: '',
     fileFromDir: '',

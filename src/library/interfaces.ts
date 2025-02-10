@@ -1,4 +1,4 @@
-export interface InputOutputType {
+export interface InputOutput {
     inputType: string;
     fileFrom: string;
     fileFromDir: string;
@@ -12,12 +12,12 @@ export interface InputOutputType {
     fileToExt: string;
 }
 
-export interface FileFromInfoType {
+export interface FileFromInfo {
     ext: string[];
     fileTypeName: string;
 }
 
-export interface variablesType {
+export interface Variables {
     [key: string]: {
         label: [string];
         values: {
@@ -26,4 +26,37 @@ export interface variablesType {
         missing: [string];
         selected: [boolean];
     }
+}
+
+export interface ShowMessage {
+    type: 'info' | 'error' | 'question' | 'warning';
+    title: string;
+    message: string;
+}
+
+export interface ValidationHelpers {
+    valueInInterval: (value: number, interval: [min: number, max: number]) => boolean;
+}
+
+export interface ValidationMessage {
+    [element: string]: {
+        name: string;
+        errors: string[];
+    }
+}
+
+
+export interface ErrorTippy {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    [element: string]: Array<any>
+}
+
+export interface CommandArgs {
+    command: string;
+    variables: boolean;
+}
+
+export interface MountArgs {
+    what: string;
+    where: string;
 }
